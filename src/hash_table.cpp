@@ -1,6 +1,7 @@
 #include "hash_table.hpp"
 #include <cstddef>
 #include <functional>
+#include <memory>
 
 // Every function below is a stub so the project compiles.
 // Replace each TODO with a real implementation.
@@ -13,11 +14,18 @@ std::size_t HashTable::bucket_index(const std::string& key) const {
 }
 
 HashTable::~HashTable() {
-    // TODO: walk every bucket and delete every Node, then free the bucket array
+    for (std::size_t i = 0; i < capacity_ - 1; ++i) {
+        Node* n = buckets_[i];
+        while (n != nullptr) {
+            Node* next = n -> next;
+            delete n;
+            n = next;
+        }
+    }
+    delete[] buckets_;
 }
 
 void HashTable::set(const std::string& key, const std::string& value) {
-    // TODO: find the bucket; if key exists, overwrite; otherwise push a new Node
     std::size_t i = bucket_index(key);
     for (Node* n = buckets_[i]; n != nullptr; n = n -> next) {
         if (n -> key == key){
@@ -38,8 +46,23 @@ std::optional<std::string> HashTable::get(const std::string& key) const {
 }
 
 bool HashTable::erase(const std::string& key) {
-    // TODO: unlink the node from its list and delete it
-    (void)key;
+    std::size_t i = bucket_index(key);
+    Node* prev = nullptr;
+    for (Node* n = buckets_[i]; n != nullptr; prev = n, n = n -> next) {
+        if (n -> key == key) {
+            if (prev == nullptr) {
+                buckets_[i] = n -> next;
+            }
+            else {
+                prev -> next = n -> next;
+            }
+
+            delete n;
+            size_--;
+            return true;
+        }
+    }
+
     return false;
 }
 
