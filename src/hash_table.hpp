@@ -42,6 +42,7 @@ private:
     std::size_t capacity_;
     std::size_t size_;
     Node** buckets_;
+    void grow();
 
     std::size_t bucket_index(const std::string& key) const;
 
