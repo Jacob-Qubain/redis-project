@@ -21,6 +21,9 @@ target_include_directories(core PUBLIC src)
 add_executable(mini-redis src/main.cpp)
 target_link_libraries(mini-redis PRIVATE core)
 
+add_executable(bench bench/bench.cpp)
+target_link_libraries(bench PRIVATE core)
+
 # Tests (Catch2 is downloaded automatically the first time you configure)
 include(FetchContent)
 FetchContent_Declare(Catch2

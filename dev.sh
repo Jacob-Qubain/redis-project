@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build helper.  ./dev.sh build | test | run | clean
+# Build helper.  ./dev.sh build | test | run | bench | clean
 #
 # Why this exists: on this Mac the default compiler (/usr/bin/c++) can't link
 # against the macOS 27 SDK yet, so we point CMake at Xcode's own compiler + SDK.
@@ -20,6 +20,10 @@ case "${1:-test}" in
   build) configure; cmake --build build -j ;;
   test)  configure; cmake --build build -j && ./build/tests ;;
   run)   configure; cmake --build build -j && ./build/mini-redis ;;
-  clean) rm -rf build ;;
-  *) echo "usage: ./dev.sh build|test|run|clean"; exit 1 ;;
+  bench)
+    # Separate optimized build: sanitizers and -O0 would distort timings.
+    [ -f build-release/CMakeCache.txt ] || cmake -B build-release -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_SYSROOT="$SDK"
+    cmake --build build-release -j --target bench && ./build-release/bench ;;
+  clean) rm -rf build build-release ;;
+  *) echo "usage: ./dev.sh build|test|run|bench|clean"; exit 1 ;;
 esac
