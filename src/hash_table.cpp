@@ -14,7 +14,7 @@ std::size_t HashTable::bucket_index(const std::string& key) const {
 }
 
 HashTable::~HashTable() {
-    for (std::size_t i = 0; i < capacity_ - 1; ++i) {
+    for (std::size_t i = 0; i < capacity_; ++i) {
         Node* n = buckets_[i];
         while (n != nullptr) {
             Node* next = n -> next;
