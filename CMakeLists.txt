@@ -15,7 +15,7 @@ endif()
 add_compile_options(-Wall -Wextra -Wpedantic)
 
 # Core library: everything except main(), so tests can link it.
-add_library(core src/hash_table.cpp)
+add_library(core src/hash_table.cpp src/commands.cpp)
 target_include_directories(core PUBLIC src)
 
 add_executable(mini-redis src/main.cpp)
@@ -31,7 +31,7 @@ FetchContent_Declare(Catch2
   GIT_TAG v3.7.1)
 FetchContent_MakeAvailable(Catch2)
 
-add_executable(tests tests/test_hash_table.cpp)
+add_executable(tests tests/test_hash_table.cpp tests/test_commands.cpp)
 target_link_libraries(tests PRIVATE core Catch2::Catch2WithMain)
 enable_testing()
 add_test(NAME tests COMMAND tests)

@@ -57,3 +57,63 @@ The build has **AddressSanitizer** turned on. If you use freed memory or go out 
 
 ## Words to know by the end of the week
 separate chaining, load factor, rehashing, amortized O(1), pointer, dangling pointer, memory leak, destructor, RAII (week 2 topic)
+
+---
+
+# Week 2: A TCP Server
+
+**Goal:** run `./dev.sh run`, then from another terminal type `SET name jacob` / `GET name` with `nc localhost 6380` and get replies.
+**Two parts:** (A) the command parser, which is pure logic and has tests; (B) the network server, the systems part.
+
+## Part A: `handle_command` (session 1, ~90 min)
+File: `src/commands.cpp`. Tests: `tests/test_commands.cpp` (9 of them; run `./dev.sh test`).
+
+It takes one line like `"SET name jacob"` and returns the reply string. The work, in order:
+1. **Clean the line:** drop a trailing `\r` (telnet and `nc` sometimes send `\r\n`) and trailing spaces.
+2. **Split off the first word:** `std::istringstream in(line); in >> cmd;` works like Java's `Scanner.next()`, skipping any number of spaces.
+3. **Uppercase the command** so `set` == `SET`. Loop over the string and call `std::toupper` on each char (`#include <cctype>`).
+4. **Pick the branch:** `PING`, `SET`, `GET`, `DEL`, or the unknown-command error.
+5. **Read the key** with `in >> key`. If that fails, it's "wrong number of arguments."
+6. **For SET, the value is the rest of the line**, spaces included. `std::getline(in, rest)` grabs what's left; then strip its leading spaces.
+7. **GET and DEL must have nothing after the key**, so any leftover text is an error.
+
+Java equivalent of steps 2–3, for orientation:
+```java
+Scanner in = new Scanner(line);
+String cmd = in.hasNext() ? in.next().toUpperCase() : "";
+```
+
+**Target:** all 15 tests pass, then commit.
+
+## Part B: the server (session 2, ~90 min)
+Rewrite `src/main.cpp` so that instead of reading stdin, it **listens on TCP port 6380** and answers each line a client sends using `handle_command`.
+
+In Java you'd write `new ServerSocket(6380)` and `server.accept()`. In C/C++ you use the operating system's **socket API** directly. That's what "systems programming" means, and it's what interviewers ask about. The calls, in order:
+
+| Step | Call | What it does |
+|---|---|---|
+| 1 | `socket(AF_INET, SOCK_STREAM, 0)` | Make a TCP socket; returns an `int` file descriptor (fd) |
+| 2 | `setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, ...)` | Lets you restart the server without an "address already in use" error |
+| 3 | `bind(fd, (sockaddr*)&addr, sizeof addr)` | Attach it to port 6380 (`addr.sin_port = htons(6380)`) |
+| 4 | `listen(fd, 16)` | Start accepting connections |
+| 5 | `int client = accept(fd, nullptr, nullptr)` | **Blocks** until someone connects; returns a new fd for that client |
+| 6 | `read(client, buf, sizeof buf)` | Get bytes. Returns 0 when the client disconnects |
+| 7 | `write(client, reply.data(), reply.size())` | Send the reply plus `"\n"` |
+| 8 | `close(client)` | When the client leaves, go back to step 5 |
+
+Headers: `<sys/socket.h>`, `<netinet/in.h>`, `<unistd.h>`, `<cstring>`.
+
+**The one tricky part:** TCP is a stream of bytes, not messages. One `read` might give you half a line, or three lines at once. Keep a `std::string pending`. Append whatever `read` returns, then loop: while `pending` contains `'\n'`, cut off one line, handle it, and send the reply. This is called **framing**, and it's a classic interview topic.
+
+**Check every return value.** `socket`, `bind`, `listen` and `accept` return `-1` on failure. Use `perror("bind")` to print why and exit.
+
+**Try it:**
+```bash
+./dev.sh run                 # terminal 1: server waits
+nc localhost 6380            # terminal 2: type SET name jacob, then GET name
+```
+
+**Limitation you'll notice (on purpose):** while one `nc` is connected, a second one just hangs, because `accept` and `read` block. Week 3 fixes this with an event loop (`poll()`). That's why we do blocking first: you'll feel the problem the event loop solves.
+
+## Words to know by the end of week 2
+socket, file descriptor, port, bind/listen/accept, blocking I/O, TCP byte stream, framing, `htons` (byte order)
