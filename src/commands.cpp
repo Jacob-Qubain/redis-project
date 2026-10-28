@@ -4,8 +4,6 @@
 #include <sstream>
 #include <string>
 
-// TODO(week 2): implement handle_command so every test in
-// tests/test_commands.cpp passes. See LEARNING.md, "Week 2".
 std::string handle_command(HashTable& db, const std::string& line) {
     std::string s = line;
     while (!s.empty() && (s.back() == '\r' || s.back() == ' ')) {
