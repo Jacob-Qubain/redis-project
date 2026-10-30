@@ -117,3 +117,51 @@ nc localhost 6380            # terminal 2: type SET name jacob, then GET name
 
 ## Words to know by the end of week 2
 socket, file descriptor, port, bind/listen/accept, blocking I/O, TCP byte stream, framing, `htons` (byte order)
+
+---
+
+# Week 3: An Event Loop with `poll()`
+
+**Goal:** three `nc` windows connected at the same time, each sending commands, and every one gets answered right away.
+
+## The problem
+Your week 2 server is a restaurant with **one waiter who stays at the first table until those customers leave**. Everyone else waits at the door. That happens because `accept()` and `read()` **block**: they freeze the whole program until something arrives.
+
+## The fix: one waiter, many tables
+`poll()` lets you hand the operating system a **list of file descriptors** (the listening socket plus every connected client) and ask: *"wake me when any of these has something for me."* Then you only touch the ones that are ready, so you never wait on a quiet client.
+
+```
+loop forever:
+    poll(all fds)                          <- sleeps until at least one is ready
+    if the listening socket is ready:      -> accept() the new client, add its fd to the list
+    for each client fd that is ready:
+        read() once
+        0 or error?  -> close it, remove it from the list, drop its buffer
+        otherwise    -> append to THAT client's pending buffer, answer every complete line
+```
+
+This is the same design as the real Redis, nginx and Node.js: a **single-threaded event loop**. It's a top interview topic ("how does Node handle 10,000 connections with one thread?").
+
+## The pieces
+| Thing | C++ | Notes |
+|---|---|---|
+| The watch list | `std::vector<pollfd> fds;` | `pollfd` has `.fd`, `.events` (what you want: `POLLIN` = "readable"), `.revents` (what happened) |
+| Add an fd | `fds.push_back({client_fd, POLLIN, 0});` | |
+| Wait | `poll(fds.data(), fds.size(), -1)` | `-1` = wait forever. Returns -1 on error |
+| "Is it ready?" | `fds[i].revents & POLLIN` | `&` is bitwise AND, testing one flag |
+| Per-client buffer | `std::unordered_map<int, std::string> pending;` | key = client fd. (Using the standard library here is fine; the no-`unordered_map` rule was only for your database.) |
+
+Header: `#include <poll.h>`.
+
+## Milestones
+1. **Fix CI first:** delete `#include <sys/_types/_ssize_t.h>`. It's a Mac-only internal header, and `ssize_t` already comes from `<unistd.h>`. Lesson: CI on a different OS catches portability bugs.
+2. **Poll only the server socket.** Put `server_fd` in `fds`, call `poll`, and when it's readable, `accept`. Behavior is the same as week 2, but the shape is new.
+3. **Add clients to `fds`.** After `accept`, push the client. When a client fd is readable, read **once** (don't loop on `read` anymore; `poll` tells you when there's more), append to `pending[fd]`, and answer complete lines.
+4. **Handle disconnects.** When `read` returns 0 or -1: `close(fd)`, `pending.erase(fd)`, and remove it from `fds`. Watch out: removing from a vector while looping over it by index skips the next element. Loop **backwards**, or swap the element with the last one and `pop_back()`.
+5. **Test with 3 `nc` windows at once.**
+
+## Known limitation (we'll accept it for now)
+`write()` might not send everything if a client is slow to read. For tiny replies like ours that basically never happens. A production server keeps an outgoing buffer per client and also watches `POLLOUT`. Mention it in interviews as "what I'd add next." That shows you know it.
+
+## Words to know by the end of week 3
+event loop, I/O multiplexing, `poll`/`select`/`epoll`/`kqueue`, readiness, blocking vs non-blocking, file descriptor table, C10K problem

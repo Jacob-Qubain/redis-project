@@ -4,12 +4,12 @@
 
 An in-memory key-value database server, built from scratch in C++20 to learn systems programming: manual memory management, networking, and performance. The goal is for the real `redis-cli` to be able to connect to it.
 
-> 🚧 **Status:** week 1 of 6 done. The storage engine (hash table) is complete and tested. The TCP server is next.
+> 🚧 **Status:** week 3 of 6 done. The storage engine (hash table) is complete and tested. The TCP server is next.
 
 ## Roadmap
 - [x] **Week 1:** hash table from scratch (separate chaining, manual memory, resizing) + unit tests
 - [x] **Week 2:** blocking TCP server with `GET` / `SET` / `DEL`
-- [ ] **Week 3:** non-blocking event loop with `poll()` (many clients at once)
+- [x] **Week 3:** non-blocking event loop with `poll()` (many clients at once)
 - [ ] **Week 4:** RESP protocol so the real `redis-cli` can connect + key expiry (TTL)
 - [ ] **Week 5:** append-only-file persistence
 - [ ] **Week 6:** benchmarks with `redis-benchmark`, architecture diagram
